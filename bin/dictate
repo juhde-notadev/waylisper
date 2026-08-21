@@ -28,6 +28,11 @@ read -r
 parecord --device="$SOURCE" --rate=16000 --channels=1 --format=s16le --file-format=wav "$WAV" &
 REC_PID=$!
 
+# The phone mic's PipeWire node takes ~2s to actually start flowing audio
+# after parecord connects to it - without this wait, the first couple
+# seconds of speech get silently dropped from the recording.
+sleep 2.2
+
 echo "Recording... press Enter to stop."
 read -r
 
