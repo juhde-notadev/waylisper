@@ -43,8 +43,10 @@ Linux, Wayland session — built and tested against KDE Plasma 6 / KWin specific
 ### 0a. Base packages (Fedora)
 
 ```bash
-sudo dnf install -y cmake gcc gcc-c++ make git python3-pip xterm alsa-utils wl-clipboard
+sudo dnf install -y cmake gcc gcc-c++ make git python3-pip xterm alsa-utils wl-clipboard pipewire-alsa
 ```
+
+`pipewire-alsa` is the one easy to miss — it's the actual plugin that makes a PipeWire audio node (like your phone mic) show up as a named ALSA device at all. Without it, `arecord -L` won't list it and step 0c below won't have anything to point at. It's usually already pulled in by default on a full desktop install (Fedora KDE Spin includes it out of the box), but it's a distinct package worth naming explicitly rather than assuming.
 
 On other distros, swap in the equivalent package names/manager — everything here is standard tooling, nothing exotic.
 
