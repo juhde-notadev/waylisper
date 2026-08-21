@@ -223,7 +223,7 @@ Browse [more voices here](https://huggingface.co/rhasspy/piper-voices) if you wa
 }
 ```
 
-Optionally, copy `bin/speak-stop` alongside it and bind it to its own hotkey — it interrupts in-progress playback (kills the underlying `paplay`), for when you want to talk over/through a response instead of waiting it out. Handy if you're not on headphones, where the speaker output can otherwise bleed into your next dictation's mic pickup.
+Optionally, copy `bin/speak-stop` alongside it and bind it to its own hotkey — it's a mute toggle: press once to kill any in-progress playback and silence future responses, press again to un-mute. State persists in `$XDG_STATE_HOME/waylisper/muted` (a plain marker file `speak-response` checks before it starts) until you toggle it back. Handy if you're not on headphones, where speaker output can otherwise bleed into your next dictation's mic pickup, or any time you just want quiet without editing settings.json.
 
 ```bash
 cp bin/speak-stop ~/.local/bin/
@@ -234,7 +234,7 @@ chmod +x ~/.local/bin/speak-stop
 
 - **Anywhere, manual**: run `dictate` in a terminal. Speak, press Enter, get the transcript on your clipboard.
 - **Anywhere, hands-free**: tap your bound hotkey, speak, press Enter — the transcript types itself into whatever had focus and submits with Enter.
-- **Interrupt TTS playback**: tap your `speak-stop` hotkey (if bound) to cut off a response being read aloud.
+- **Mute/unmute TTS**: tap your `speak-stop` hotkey (if bound) to cut off a response being read aloud and silence future ones; tap again to un-mute.
 
 ## Gotchas we hit building this (so you don't have to)
 

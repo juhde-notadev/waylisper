@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
-# Interrupts any in-progress TTS playback from speak-response. Bind to a
-# hotkey for when you need to talk over/through Claude's response instead
-# of waiting for it to finish — useful without headphones, where the
-# speaker output can otherwise bleed into your next dictation's mic pickup.
-pkill -f "paplay .*\.wav" 2>/dev/null
-pkill -f "python3 -m piper" 2>/dev/null
-exit 0
+# Toggles TTS on/off. Bind to a hotkey.
+#
+# Off: kills any in-progress playback immediately, and mutes speak-response
+# so future responses stay silent until toggled back on. Useful without
+# headphones, where speaker output can otherwise bleed into your next
+# dictation's mic pickup, or any time you just want quiet.
+# On: re-enables — the next response speaks normally.
+set -uo pipefail
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/waylisper"
+MUTE_FILE="$STATE_DIR/muted"
+mkdir -p "$STATE_DIR"
+
+if [ -f "$MUTE_FILE" ]; then
+    rm -f "$MUTE_FILE"
+else
+    pkill -f "paplay .*\.wav" 2>/dev/null
+    pkill -f "python3 -m piper" 2>/dev/null
+    touch "$MUTE_FILE"
+fi

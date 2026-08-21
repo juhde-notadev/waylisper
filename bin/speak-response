@@ -4,6 +4,12 @@
 set -uo pipefail
 
 MODEL="$HOME/.local/share/piper-voices/en_US-lessac-high.onnx"
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/waylisper"
+if [ -f "$STATE_DIR/muted" ]; then
+    exit 0
+fi
+
 TMP_WAV=$(mktemp --suffix=.wav)
 trap 'rm -f "$TMP_WAV"' EXIT
 
