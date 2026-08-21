@@ -52,7 +52,7 @@ On other distros, swap in the equivalent package names/manager — everything he
 
 ### 0b. Phone-as-mic: AndroidMic
 
-This is a real prerequisite, not something these install steps can fully automate for you — it means installing a desktop-side server and pairing your phone's app to it. Follow [AndroidMic's own README](https://github.com/teamclouday/AndroidMic) for that part. Once it's running and paired, its audio source should just appear as both a PipeWire node and (per step 0c below) an ALSA device — nothing else to configure on the Waylisper side.
+This is a real prerequisite, not something these install steps can fully automate for you — it means installing a desktop-side server and pairing your phone's app to it. Follow [AndroidMic's own README](https://github.com/teamclouday/AndroidMic) for that part. Once it's running and paired, its audio shows up as a PipeWire node — turning that into a nicely-named ALSA device (what step 0c actually needs) takes one more manual bit of config, covered there.
 
 If you're using a different phone-mic app, or a physical USB mic, or anything else — same deal, as long as it ends up visible to `arecord -L` you're fine; AndroidMic isn't a hard requirement, it's just what this was built and tested against.
 
@@ -69,15 +69,37 @@ This is the actual source of the low latency, so it's worth doing deliberately r
 
 Any app that plays or captures audio on a modern Linux desktop is usually going through one of two paths on top of PipeWire: the **PulseAudio-compatibility layer** (`pipewire-pulse`, what `parecord`/most audio-picker dialogs use — convenient, but adds a real amount of buffering latency), or **PipeWire's native ALSA plugin** — a direct, low-latency path that behaves like talking to a real ALSA device. `arecord -D <device>` uses the latter. This is the same mechanism serious low-latency audio work (DAWs like REAPER, for instance) has relied on for years — this project just applies it to speech input instead of music production.
 
-To find your device's ALSA name:
+**This part is manual, and it's the actual reason the latency is as low as it is.** A PipeWire node existing doesn't automatically get a friendly ALSA name — you define that yourself with a PCM alias.
+
+First, find your mic's exact PipeWire node name:
 
 ```bash
-arecord -L
+wpctl status
+# or: pactl list sources short
 ```
 
-Look for an entry matching your mic source (for AndroidMic specifically, PipeWire registers it as a named ALSA device automatically — no manual config needed, it just shows up). If nothing obvious appears, check whether the app exposing your mic source registers its own ALSA alias, or fall back to `default` (works, just without the same latency guarantee).
+Look for your phone mic in the Sources/Audio section — for AndroidMic it typically shows up as something like `Android_Mic_Source`. Then add a PCM alias for it in `~/.asoundrc` (create the file if it doesn't exist):
 
-Set it via the `WAYLISPER_ALSA_DEVICE` environment variable (e.g. in the `dictate-autotype` systemd/shortcut invocation, or your shell profile) — see `bin/dictate`, which defaults to `default` if unset.
+```
+pcm.android_mic {
+    type pipewire
+    capture_node "Android_Mic_Source"
+    hint {
+        show on
+        description "Android Mic (via PipeWire)"
+    }
+}
+```
+
+Replace `"Android_Mic_Source"` with whatever node name you found, and `android_mic` (both the `pcm.NAME` and the description) with whatever you want to call it. Verify it shows up:
+
+```bash
+arecord -L | grep -A2 android_mic
+```
+
+If nothing appears, double check the exact node name (it's case-sensitive) and that PipeWire itself sees the device at all (`wpctl status` should list it as a running source before this step will work).
+
+Set it via the `WAYLISPER_ALSA_DEVICE` environment variable (e.g. in the `dictate-autotype` systemd/shortcut invocation, or your shell profile) — see `bin/dictate`, which defaults to `default` if unset. `default` still works without any of this, just without the same latency win.
 
 ### 1. Transcription: faster-whisper + the daemon
 
