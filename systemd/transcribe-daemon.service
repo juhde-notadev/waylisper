@@ -1,0 +1,9 @@
+[Unit]
+Description=Persistent faster-whisper transcription daemon for dictate
+
+[Service]
+ExecStart=/usr/bin/python3 /home/juhde/.local/bin/transcribe-daemon
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

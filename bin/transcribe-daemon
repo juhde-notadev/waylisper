@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Persistent transcription daemon: loads faster-whisper once, serves
+transcription requests over a Unix socket to avoid the ~19s model-load
+cost on every dictation. Protocol: client sends a WAV file path followed
+by a newline; daemon replies with the transcript text followed by a
+newline, then closes the connection.
+"""
+import os
+import socket
+import socketserver
+import sys
+
+from faster_whisper import WhisperModel
+
+SOCKET_PATH = "/run/user/1000/transcribe.sock"
+
+print("Loading model...", flush=True)
+model = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8", cpu_threads=16)
+print("Model loaded, ready.", flush=True)
+
+
+class Handler(socketserver.StreamRequestHandler):
+    def handle(self):
+        try:
+            wav_path = self.rfile.readline().decode("utf-8").strip()
+            if not wav_path or not os.path.isfile(wav_path):
+                self.wfile.write(b"\n")
+                return
+            segments, _ = model.transcribe(wav_path, language="en", beam_size=5)
+            text = " ".join(s.text.strip() for s in segments)
+            self.wfile.write((text + "\n").encode("utf-8"))
+        except Exception as e:
+            print(f"Error handling request: {e}", file=sys.stderr, flush=True)
+            self.wfile.write(b"\n")
+
+
+class Server(socketserver.UnixStreamServer):
+    allow_reuse_address = True
+
+
+if os.path.exists(SOCKET_PATH):
+    os.remove(SOCKET_PATH)
+
+server = Server(SOCKET_PATH, Handler)
+os.chmod(SOCKET_PATH, 0o600)
+print(f"Listening on {SOCKET_PATH}", flush=True)
+server.serve_forever()
