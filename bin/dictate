@@ -54,15 +54,21 @@ if [ ! -s "$WAV" ]; then
 fi
 
 echo "Transcribing..."
-"$WHISPER_BIN" -m "$MODEL" -f "$WAV" -t 16 -l en -nt -np -otxt -of "$OUT_PREFIX" >/dev/null 2>&1
 
-TEXT_FILE="$OUT_PREFIX.txt"
-if [ ! -f "$TEXT_FILE" ]; then
-    echo "Transcription failed." >&2
-    exit 1
+DAEMON_SOCKET="/run/user/1000/transcribe.sock"
+if [ -S "$DAEMON_SOCKET" ]; then
+    TEXT=$("$HOME/.local/bin/transcribe-client" "$WAV" 2>/dev/null)
 fi
 
-TEXT=$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' "$TEXT_FILE")
+if [ -z "${TEXT:-}" ]; then
+    "$WHISPER_BIN" -m "$MODEL" -f "$WAV" -t 16 -l en -nt -np -otxt -of "$OUT_PREFIX" >/dev/null 2>&1
+    TEXT_FILE="$OUT_PREFIX.txt"
+    if [ ! -f "$TEXT_FILE" ]; then
+        echo "Transcription failed." >&2
+        exit 1
+    fi
+    TEXT=$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' "$TEXT_FILE")
+fi
 
 if [ -z "$TEXT" ]; then
     echo "No speech detected."
