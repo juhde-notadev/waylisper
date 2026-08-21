@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Interrupts any in-progress TTS playback from speak-response. Bind to a
+# hotkey for when you need to talk over/through Claude's response instead
+# of waiting for it to finish — useful without headphones, where the
+# speaker output can otherwise bleed into your next dictation's mic pickup.
+pkill -f "paplay .*\.wav" 2>/dev/null
+pkill -f "python3 -m piper" 2>/dev/null
+exit 0

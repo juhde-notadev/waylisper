@@ -223,10 +223,18 @@ Browse [more voices here](https://huggingface.co/rhasspy/piper-voices) if you wa
 }
 ```
 
+Optionally, copy `bin/speak-stop` alongside it and bind it to its own hotkey — it interrupts in-progress playback (kills the underlying `paplay`), for when you want to talk over/through a response instead of waiting it out. Handy if you're not on headphones, where the speaker output can otherwise bleed into your next dictation's mic pickup.
+
+```bash
+cp bin/speak-stop ~/.local/bin/
+chmod +x ~/.local/bin/speak-stop
+```
+
 ## Usage
 
 - **Anywhere, manual**: run `dictate` in a terminal. Speak, press Enter, get the transcript on your clipboard.
 - **Anywhere, hands-free**: tap your bound hotkey, speak, press Enter — the transcript types itself into whatever had focus and submits with Enter.
+- **Interrupt TTS playback**: tap your `speak-stop` hotkey (if bound) to cut off a response being read aloud.
 
 ## Gotchas we hit building this (so you don't have to)
 
