@@ -54,6 +54,13 @@ This is a real prerequisite, not something these install steps can fully automat
 
 If you're using a different phone-mic app, or a physical USB mic, or anything else — same deal, as long as it ends up visible to `arecord -L` you're fine; AndroidMic isn't a hard requirement, it's just what this was built and tested against.
 
+AndroidMic offers a few connection modes between phone and PC — the choice matters for latency:
+
+- **WiFi, UDP** — lower latency than TCP over WiFi, since UDP skips TCP's ordering/retransmission overhead. Prefer this over TCP if you're staying wireless.
+- **USB (Serial or ADB)** — wired, avoids WiFi jitter entirely, the lowest-latency option if you want to push past what WiFi UDP can give you. Requires `adb` installed and USB debugging enabled on the phone for the ADB mode specifically.
+
+See [AndroidMic's README](https://github.com/teamclouday/AndroidMic) for the exact setup steps per mode — they differ enough (pairing over the same network vs. cable + developer mode) that it's worth reading directly rather than a paraphrase here.
+
 ### 0c. Low-latency mic capture: go through PipeWire's ALSA plugin, not PulseAudio
 
 This is the actual source of the low latency, so it's worth doing deliberately rather than accepting whatever `dictate` defaults to.
