@@ -25,9 +25,6 @@ OUT_PREFIX="$TMP_DIR/out"
 cleanup() { rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
 
-echo "Press Enter to start recording..."
-read -r
-
 parecord --device="$SOURCE" --rate=16000 --channels=1 --format=s16le --file-format=wav "$WAV" &
 REC_PID=$!
 
