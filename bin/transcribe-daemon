@@ -16,6 +16,12 @@ SOCKET_PATH = f"/run/user/{os.getuid()}/transcribe.sock"
 
 MODEL_NAME = os.environ.get("WAYLISPER_MODEL", "large-v3-turbo")
 CPU_THREADS = int(os.environ.get("WAYLISPER_THREADS", os.cpu_count() or 4))
+# Beam search explores this many hypotheses per decoding step; the encoder
+# pass (which scales with audio length, not this) dominates wall-clock time
+# for typical dictation-length clips, so beam_size=1 (greedy) trades away
+# little accuracy for a modest but real speedup. Bump it back up via the env
+# var if you notice it mangling harder audio (accents, background noise).
+BEAM_SIZE = int(os.environ.get("WAYLISPER_BEAM_SIZE", 1))
 
 print("Loading model...", flush=True)
 model = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8", cpu_threads=CPU_THREADS)
@@ -29,7 +35,17 @@ class Handler(socketserver.StreamRequestHandler):
             if not wav_path or not os.path.isfile(wav_path):
                 self.wfile.write(b"\n")
                 return
-            segments, _ = model.transcribe(wav_path, language="en", beam_size=5)
+            # vad_filter strips silence/non-speech before it ever reaches the
+            # model. Whisper-family models are trained on huge amounts of
+            # YouTube audio and learned to fill trailing silence with
+            # sign-off phrases ("thanks for watching", "I'll see you next
+            # time") instead of correctly outputting nothing — this is a
+            # well-documented Whisper hallucination mode, not a bug specific
+            # to this setup. VAD-filtering the silence out before transcribing
+            # is the standard fix.
+            segments, _ = model.transcribe(
+                wav_path, language="en", beam_size=BEAM_SIZE, vad_filter=True
+            )
             text = " ".join(s.text.strip() for s in segments)
             self.wfile.write((text + "\n").encode("utf-8"))
         except Exception as e:

@@ -131,7 +131,10 @@ If the default model (`large-v3-turbo`) is more than your CPU wants to carry, ov
 ```
 Environment=WAYLISPER_MODEL=medium.en
 Environment=WAYLISPER_THREADS=8
+Environment=WAYLISPER_BEAM_SIZE=1
 ```
+
+`WAYLISPER_BEAM_SIZE` defaults to `1` (greedy decoding) — for typical dictation-length clips the encoder pass dominates transcription time, not beam search, so this trades away little accuracy for a modest real speedup. Raise it (5 is faster-whisper's own default) if you notice it struggling on harder audio.
 
 Then `systemctl --user daemon-reload && systemctl --user restart transcribe-daemon.service` to pick up the change.
 
