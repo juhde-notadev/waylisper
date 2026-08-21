@@ -4,7 +4,7 @@
 set -uo pipefail
 
 WHISPER_BIN="$HOME/src/whisper.cpp/build/bin/whisper-cli"
-MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo.bin"
+MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo-q8_0.bin"
 SOURCE="Android_Mic_Source"
 
 if [ ! -x "$WHISPER_BIN" ]; then
