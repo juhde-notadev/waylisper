@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Persistent transcription daemon: loads faster-whisper once, serves
-transcription requests over a Unix socket to avoid the ~19s model-load
+transcription requests over a Unix socket to avoid the ~15-20s model-load
 cost on every dictation. Protocol: client sends a WAV file path followed
 by a newline; daemon replies with the transcript text followed by a
 newline, then closes the connection.
@@ -12,10 +12,13 @@ import sys
 
 from faster_whisper import WhisperModel
 
-SOCKET_PATH = "/run/user/1000/transcribe.sock"
+SOCKET_PATH = f"/run/user/{os.getuid()}/transcribe.sock"
+
+MODEL_NAME = os.environ.get("WAYLISPER_MODEL", "large-v3-turbo")
+CPU_THREADS = int(os.environ.get("WAYLISPER_THREADS", os.cpu_count() or 4))
 
 print("Loading model...", flush=True)
-model = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8", cpu_threads=16)
+model = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8", cpu_threads=CPU_THREADS)
 print("Model loaded, ready.", flush=True)
 
 

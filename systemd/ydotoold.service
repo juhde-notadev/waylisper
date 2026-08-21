@@ -1,7 +1,11 @@
 [Unit]
-Description=ydotool daemon (virtual input for auto-typing dictation output)
+Description=ydotool daemon (virtual input for waylisper's auto-type)
 
 [Service]
+# Replace GROUP_GID below with the numeric GID of whichever group your user
+# is in that should be allowed to use ydotool (e.g. `getent group wheel`).
+# Running the daemon as root but handing the socket to your own group means
+# no new group membership or logout/login is needed to use it.
 ExecStart=/usr/local/sbin/ydotoold --socket-path=/run/ydotoold.socket --socket-perm=0660 --socket-own=0:GROUP_GID
 Restart=on-failure
 

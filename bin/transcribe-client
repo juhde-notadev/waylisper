@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Sends a WAV file path to transcribe-daemon and prints the transcript."""
+import os
 import socket
 import sys
 
@@ -7,8 +8,10 @@ if len(sys.argv) != 2:
     print("usage: transcribe-client <wav-path>", file=sys.stderr)
     sys.exit(1)
 
+SOCKET_PATH = f"/run/user/{os.getuid()}/transcribe.sock"
+
 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-s.connect("/run/user/1000/transcribe.sock")
+s.connect(SOCKET_PATH)
 s.sendall((sys.argv[1] + "\n").encode("utf-8"))
 s.shutdown(socket.SHUT_WR)
 

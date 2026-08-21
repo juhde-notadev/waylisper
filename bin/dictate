@@ -1,30 +1,19 @@
 #!/usr/bin/env bash
 # Push-to-talk dictation: records from an ALSA capture device, transcribes
-# with whisper.cpp (large-v3-turbo), copies the result to the Wayland
-# clipboard.
+# via the persistent transcribe-daemon (falls back to whisper.cpp if the
+# daemon's down), and copies the result to the Wayland clipboard.
 set -uo pipefail
 
 WHISPER_BIN="$HOME/src/whisper.cpp/build/bin/whisper-cli"
-# Tested q5_0 as a further speed upgrade - came back slower (6.6s vs 4.99s
-# on the same test clip) and lower quality. Whisper.cpp's kernels on this
-# CPU are apparently better optimized for q8_0. Staying here.
 MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo-q8_0.bin"
 
-# Switched from parecord (PulseAudio-compat layer) to direct ALSA - the
-# same general approach this machine already uses for REAPER to keep
-# recording latency low. Also incidentally fixes the ~2s PipeWire warmup
-# delay parecord needed; direct ALSA starts flowing almost instantly, so
-# that whole sleep is gone too.
-ALSA_DEVICE="android_mic"
+# ALSA capture device. `arecord -L` lists devices; find whatever your mic
+# source shows up as (see README for the AndroidMic phone-as-mic setup this
+# was built around). Direct ALSA is used instead of PulseAudio/pipewire-pulse
+# for lower latency.
+ALSA_DEVICE="${WAYLISPER_ALSA_DEVICE:-default}"
 
-if [ ! -x "$WHISPER_BIN" ]; then
-    echo "whisper-cli not found at $WHISPER_BIN" >&2
-    exit 1
-fi
-if [ ! -f "$MODEL" ]; then
-    echo "model not found at $MODEL" >&2
-    exit 1
-fi
+DAEMON_SOCKET="/run/user/$(id -u)/transcribe.sock"
 
 TMP_DIR=$(mktemp -d)
 WAV="$TMP_DIR/rec.wav"
@@ -35,14 +24,15 @@ trap cleanup EXIT
 arecord -D "$ALSA_DEVICE" -f S16_LE -r 16000 -c 1 -t wav "$WAV" >/dev/null 2>&1 &
 REC_PID=$!
 
+# Direct ALSA capture starts near-instantly (no pipewire-pulse graph
+# negotiation delay), so no warmup wait needed here.
 sleep 0.2
 
 echo "Recording... speak now, press Enter to stop."
 read -r
 
 # Small trailing buffer so words spoken right up to the Enter press aren't
-# clipped before the stop signal reaches arecord. Found this while testing
-# longer dictations - the last word or two kept getting cut off.
+# clipped before the stop signal reaches arecord.
 sleep 0.3
 
 kill -INT "$REC_PID" 2>/dev/null
@@ -55,13 +45,16 @@ fi
 
 echo "Transcribing..."
 
-DAEMON_SOCKET="/run/user/1000/transcribe.sock"
 if [ -S "$DAEMON_SOCKET" ]; then
     TEXT=$("$HOME/.local/bin/transcribe-client" "$WAV" 2>/dev/null)
 fi
 
 if [ -z "${TEXT:-}" ]; then
-    "$WHISPER_BIN" -m "$MODEL" -f "$WAV" -t 16 -l en -nt -np -otxt -of "$OUT_PREFIX" >/dev/null 2>&1
+    if [ ! -x "$WHISPER_BIN" ] || [ ! -f "$MODEL" ]; then
+        echo "No transcription backend available (daemon down, and no whisper.cpp fallback installed)." >&2
+        exit 1
+    fi
+    "$WHISPER_BIN" -m "$MODEL" -f "$WAV" -t "$(nproc)" -l en -nt -np -otxt -of "$OUT_PREFIX" >/dev/null 2>&1
     TEXT_FILE="$OUT_PREFIX.txt"
     if [ ! -f "$TEXT_FILE" ]; then
         echo "Transcription failed." >&2
@@ -75,13 +68,12 @@ if [ -z "$TEXT" ]; then
     exit 0
 fi
 
-# wl-copy daemonizes and stays running to actually serve the clipboard
-# (unlike X11 clipboard tools). Found via lsof that it was inheriting and
-# holding open dictate-autotype's lock file descriptor (fd 200) forever,
-# permanently jamming the overlap guard even after everything else had
-# finished cleanly. 200>&- closes that fd for wl-copy specifically.
+# wl-copy daemonizes and stays running to serve the clipboard, so it would
+# otherwise inherit and hold open any lock file descriptor (e.g. fd 200,
+# used by dictate-autotype's overlap guard) indefinitely. 200>&- closes
+# that fd for wl-copy specifically without affecting this script.
 printf '%s' "$TEXT" | wl-copy 200>&-
-printf '%s' "$TEXT" > /tmp/dictate_last.txt
+printf '%s' "$TEXT" > "${TMPDIR:-/tmp}/waylisper-last.txt"
 
 echo "--- Transcript ---"
 echo "$TEXT"

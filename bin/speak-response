@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code Stop hook: speaks Claude's last response aloud via Piper TTS.
+# Wire it up in settings.json under hooks.Stop — see README.
 set -uo pipefail
 
 MODEL="$HOME/.local/share/piper-voices/en_US-lessac-high.onnx"
@@ -18,17 +19,24 @@ import sys, re
 
 text = sys.stdin.read()
 
+# fenced code blocks -> drop entirely (usually not worth speaking)
 text = re.sub(r"```.*?```", " code block omitted ", text, flags=re.DOTALL)
+# inline code
 text = re.sub(r"`([^`]*)`", r"\1", text)
+# bold/italic markers
 text = re.sub(r"\*\*\*(.*?)\*\*\*", r"\1", text)
 text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
 text = re.sub(r"\*(.*?)\*", r"\1", text)
 text = re.sub(r"__(.*?)__", r"\1", text)
 text = re.sub(r"_(.*?)_", r"\1", text)
+# markdown links [text](url) -> text
 text = re.sub(r"\[([^\]]*)\]\([^\)]*\)", r"\1", text)
+# headers
 text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
+# bullet/list markers
 text = re.sub(r"^[\s]*[-*+]\s+", "", text, flags=re.MULTILINE)
 text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+# collapse whitespace
 text = re.sub(r"\n{2,}", ". ", text)
 text = re.sub(r"\n", " ", text)
 text = re.sub(r"\s{2,}", " ", text)
@@ -40,15 +48,12 @@ if [ -z "$CLEAN_TEXT" ]; then
     exit 0
 fi
 
-# A burst of rapid responses was causing every speak-response invocation
-# to generate and play audio independently, with no coordination between
-# them - the result was several voices overlapping and talking over each
-# other at once. Claim "latest" before playing; if a newer invocation
-# overwrites this first, we're stale and should skip instead of queuing
-# behind it.
+# Claim "latest" — if a newer invocation overwrites this before we get to
+# play, we're stale and should skip instead of queuing behind it. Prevents
+# a burst of rapid responses from all talking over each other at once.
 TOKEN="$$-$RANDOM"
-LATEST_FILE=/tmp/speak-response-latest
-LOCK_FILE=/tmp/speak-response.lock
+LATEST_FILE="${TMPDIR:-/tmp}/waylisper-speak-latest"
+LOCK_FILE="${TMPDIR:-/tmp}/waylisper-speak.lock"
 echo "$TOKEN" > "$LATEST_FILE"
 
 printf '%s' "$CLEAN_TEXT" | python3 -m piper -m "$MODEL" -f "$TMP_WAV" >/dev/null 2>&1
