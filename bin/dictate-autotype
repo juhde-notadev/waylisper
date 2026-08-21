@@ -24,3 +24,4 @@ fi
 sleep 0.4
 
 YDOTOOL_SOCKET=/run/ydotoold.socket ydotool type -- "$TEXT"
+YDOTOOL_SOCKET=/run/ydotoold.socket ydotool key 28:1 28:0
