@@ -197,17 +197,30 @@ chmod +x ~/.local/bin/speak-response
 pip install --user piper-tts
 ```
 
-Download a voice — `en_US-lessac-high` is a solid natural-sounding default:
+`speak-response` ships with three switchable voice presets — pick with `WAYLISPER_TTS_VOICE=lessac|female|jarvis` (defaults to `jarvis`), e.g. as an `Environment=` line in whatever launches Claude Code, or just export it in your shell profile. Download whichever you want (all three if you want to switch freely):
 
 ```bash
 mkdir -p ~/.local/share/piper-voices
-curl -sL -o ~/.local/share/piper-voices/en_US-lessac-high.onnx \
-  "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx"
-curl -sL -o ~/.local/share/piper-voices/en_US-lessac-high.onnx.json \
-  "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx.json"
+cd ~/.local/share/piper-voices
+
+# lessac — solid natural-sounding neutral default
+curl -sL -O "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx"
+curl -sL -O "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx.json"
+
+# female — warmer alternative
+curl -sL -O "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx"
+curl -sL -O "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx.json"
+
+# jarvis — a voice actually trained to emulate JARVIS from the Marvel movies
+# (MIT licensed), from https://huggingface.co/jgkawell/jarvis — sounds right
+# untouched, no speed/pitch tricks needed
+curl -sL -o jarvis-high.onnx "https://huggingface.co/jgkawell/jarvis/resolve/main/en/en_GB/jarvis/high/jarvis-high.onnx"
+curl -sL -o jarvis-high.onnx.json "https://huggingface.co/jgkawell/jarvis/resolve/main/en/en_GB/jarvis/high/jarvis-high.onnx.json"
 ```
 
-Browse [more voices here](https://huggingface.co/rhasspy/piper-voices) if you want a different one — `bin/speak-response` already points at this path by default, only edit `MODEL` in that script if you picked something else. Add to `~/.claude/settings.json`:
+`bin/speak-response`'s `LENGTH_SCALE`/`PITCH` fields per preset exist for cases like this — a stock voice that needs a nudge to land right. The `jarvis` preset started as `en_GB-alan-medium` sped up ~40% and pitched up ~1.5% (a live-tuned hack, A/B'd back to back) before the dedicated model above made that unnecessary; that tuning mechanism (and the `ffmpeg`+`librubberband` dependency it uses when `PITCH` isn't `1`) is still there for whatever you throw at it next. `jarvis` also carries a `REVERB` value — a small-room `aecho` chain (this ffmpeg build has no dedicated reverb filter, so several short, quickly-decaying echo taps stand in for one) — also tuned live, also there as a mechanism for any preset that wants it, not just this one.
+
+Browse [more voices here](https://huggingface.co/rhasspy/piper-voices) for other options — add a new `case` branch in `bin/speak-response` for anything beyond these three. Add to `~/.claude/settings.json`:
 
 ```json
 {

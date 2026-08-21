@@ -3,7 +3,45 @@
 # Wire it up in settings.json under hooks.Stop — see README.
 set -uo pipefail
 
-MODEL="$HOME/.local/share/piper-voices/en_US-lessac-high.onnx"
+VOICES_DIR="$HOME/.local/share/piper-voices"
+
+# Voice presets, picked and tuned by ear (A/B'd live, back to back) rather
+# than by any formula. Switch with WAYLISPER_TTS_VOICE=lessac|female|jarvis.
+# LENGTH_SCALE is Piper's native speed control (lower = faster). PITCH is a
+# post-hoc rubberband shift (1 = untouched). REVERB, if non-empty, is an
+# ffmpeg -af filter string. Both post-processing steps are skipped when
+# unset, so lessac/female never pay ffmpeg's cost — only jarvis does.
+case "${WAYLISPER_TTS_VOICE:-jarvis}" in
+    lessac)
+        MODEL="$VOICES_DIR/en_US-lessac-high.onnx"
+        LENGTH_SCALE=1
+        PITCH=1
+        REVERB=""
+        ;;
+    female)
+        MODEL="$VOICES_DIR/en_US-hfc_female-medium.onnx"
+        LENGTH_SCALE=1
+        PITCH=1
+        REVERB=""
+        ;;
+    jarvis)
+        # A voice actually trained to emulate JARVIS (MIT licensed), not a
+        # generic voice pushed through speed/pitch tricks — sounds right
+        # untouched. https://huggingface.co/jgkawell/jarvis
+        MODEL="$VOICES_DIR/jarvis-high.onnx"
+        LENGTH_SCALE=1
+        PITCH=1
+        # Small-room reverb via layered short decaying echoes — this ffmpeg
+        # build has no dedicated reverb filter (no afreeverb, no librubberband
+        # convolution reverb), so aecho with several close, quickly-decaying
+        # taps is the approximation. Tuned live, A/B'd back to back.
+        REVERB="aecho=0.8:0.7:46|69|104:0.345|0.23|0.115"
+        ;;
+    *)
+        echo "Unknown WAYLISPER_TTS_VOICE: ${WAYLISPER_TTS_VOICE}" >&2
+        exit 1
+        ;;
+esac
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/waylisper"
 if [ -f "$STATE_DIR/muted" ]; then
@@ -62,7 +100,20 @@ LATEST_FILE="${TMPDIR:-/tmp}/waylisper-speak-latest"
 LOCK_FILE="${TMPDIR:-/tmp}/waylisper-speak.lock"
 echo "$TOKEN" > "$LATEST_FILE"
 
-printf '%s' "$CLEAN_TEXT" | python3 -m piper -m "$MODEL" -f "$TMP_WAV" >/dev/null 2>&1
+printf '%s' "$CLEAN_TEXT" | python3 -m piper -m "$MODEL" -f "$TMP_WAV" --length-scale "$LENGTH_SCALE" >/dev/null 2>&1
+
+FILTERS=""
+[ "$PITCH" != 1 ] && FILTERS="rubberband=pitch=$PITCH"
+if [ -n "$REVERB" ]; then
+    FILTERS="${FILTERS:+$FILTERS,}$REVERB"
+fi
+
+if [ -n "$FILTERS" ]; then
+    PROCESSED_WAV=$(mktemp --suffix=.wav)
+    trap 'rm -f "$TMP_WAV" "$PROCESSED_WAV"' EXIT
+    ffmpeg -y -i "$TMP_WAV" -af "$FILTERS" "$PROCESSED_WAV" >/dev/null 2>&1
+    mv "$PROCESSED_WAV" "$TMP_WAV"
+fi
 
 (
     flock -x 200
