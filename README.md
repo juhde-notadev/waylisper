@@ -36,14 +36,25 @@ It was built to solve a specific, mundane problem: talking is faster than typing
 
 ## Prerequisites
 
-- Linux, Wayland session (built against KDE Plasma 6 / KWin specifically — the hotkey-binding steps are KDE-specific, everything else is desktop-agnostic)
-- `arecord` (alsa-utils), `wl-copy` (wl-clipboard), `xterm`, `python3`, `flock` — all normally already present or a one-line package install away
-- A microphone source visible to ALSA. This was built around [AndroidMic](https://github.com/teamclouday/AndroidMic) (phone mic → PipeWire virtual source → ALSA), but any working ALSA capture device works — check `arecord -L`.
-- (Optional, for the TTS half) [Piper](https://github.com/OHF-Voice/piper1-gpl) and a voice model, `paplay`
+Linux, Wayland session — built and tested against KDE Plasma 6 / KWin specifically. The hotkey-binding step is KDE-specific; everything else (recording, transcription, typing) is desktop-agnostic and should work under any Wayland compositor. Everything else you need is covered in Installation below, starting from a bare system.
 
 ## Installation
 
-### 0. Low-latency mic capture: go through PipeWire's ALSA plugin, not PulseAudio
+### 0a. Base packages (Fedora)
+
+```bash
+sudo dnf install -y cmake gcc gcc-c++ make git python3-pip xterm alsa-utils wl-clipboard
+```
+
+On other distros, swap in the equivalent package names/manager — everything here is standard tooling, nothing exotic.
+
+### 0b. Phone-as-mic: AndroidMic
+
+This is a real prerequisite, not something these install steps can fully automate for you — it means installing a desktop-side server and pairing your phone's app to it. Follow [AndroidMic's own README](https://github.com/teamclouday/AndroidMic) for that part. Once it's running and paired, its audio source should just appear as both a PipeWire node and (per step 0c below) an ALSA device — nothing else to configure on the Waylisper side.
+
+If you're using a different phone-mic app, or a physical USB mic, or anything else — same deal, as long as it ends up visible to `arecord -L` you're fine; AndroidMic isn't a hard requirement, it's just what this was built and tested against.
+
+### 0c. Low-latency mic capture: go through PipeWire's ALSA plugin, not PulseAudio
 
 This is the actual source of the low latency, so it's worth doing deliberately rather than accepting whatever `dictate` defaults to.
 
@@ -77,7 +88,17 @@ First start downloads the model from Hugging Face (a few hundred MB to ~1.5GB de
 
 ### 2. (Optional) whisper.cpp fallback
 
-Only needed if you want dictation to keep working when the daemon's down. Build [whisper.cpp](https://github.com/ggml-org/whisper.cpp) per its own instructions, download a model (`large-v3-turbo-q8_0` recommended — near-lossless quantization, meaningfully faster than full precision), and set the paths at the top of `bin/dictate` to match.
+Only needed if you want dictation to keep working when the daemon's down.
+
+```bash
+git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git ~/src/whisper.cpp
+cd ~/src/whisper.cpp
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j"$(nproc)"
+bash models/download-ggml-model.sh large-v3-turbo-q8_0
+```
+
+`q8_0` is a near-lossless quantization and meaningfully faster than full precision on CPU. `bin/dictate` already points at `~/src/whisper.cpp/build/bin/whisper-cli` and this model path by default — only edit those if you put things somewhere else.
 
 ### 3. Auto-type: ydotool
 
@@ -121,7 +142,17 @@ chmod +x ~/.local/bin/speak-response
 pip install --user piper-tts
 ```
 
-Download a voice from the [Piper voices repo](https://huggingface.co/rhasspy/piper-voices) and point `MODEL` in `speak-response` at it. Add to `~/.claude/settings.json`:
+Download a voice — `en_US-lessac-high` is a solid natural-sounding default:
+
+```bash
+mkdir -p ~/.local/share/piper-voices
+curl -sL -o ~/.local/share/piper-voices/en_US-lessac-high.onnx \
+  "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx"
+curl -sL -o ~/.local/share/piper-voices/en_US-lessac-high.onnx.json \
+  "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx.json"
+```
+
+Browse [more voices here](https://huggingface.co/rhasspy/piper-voices) if you want a different one — `bin/speak-response` already points at this path by default, only edit `MODEL` in that script if you picked something else. Add to `~/.claude/settings.json`:
 
 ```json
 {
