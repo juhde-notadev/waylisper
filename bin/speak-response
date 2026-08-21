@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Claude Code Stop hook: speaks Claude's last response aloud via Piper TTS.
+set -uo pipefail
+
+MODEL="$HOME/.local/share/piper-voices/en_US-lessac-high.onnx"
+TMP_WAV=$(mktemp --suffix=.wav)
+trap 'rm -f "$TMP_WAV"' EXIT
+
+INPUT=$(cat)
+TEXT=$(printf '%s' "$INPUT" | jq -r '.last_assistant_message // empty')
+
+if [ -z "$TEXT" ]; then
+    exit 0
+fi
+
+CLEAN_TEXT=$(printf '%s' "$TEXT" | python3 -c '
+import sys, re
+
+text = sys.stdin.read()
+
+text = re.sub(r"```.*?```", " code block omitted ", text, flags=re.DOTALL)
+text = re.sub(r"`([^`]*)`", r"\1", text)
+text = re.sub(r"\*\*\*(.*?)\*\*\*", r"\1", text)
+text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+text = re.sub(r"\*(.*?)\*", r"\1", text)
+text = re.sub(r"__(.*?)__", r"\1", text)
+text = re.sub(r"_(.*?)_", r"\1", text)
+text = re.sub(r"\[([^\]]*)\]\([^\)]*\)", r"\1", text)
+text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
+text = re.sub(r"^[\s]*[-*+]\s+", "", text, flags=re.MULTILINE)
+text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+text = re.sub(r"\n{2,}", ". ", text)
+text = re.sub(r"\n", " ", text)
+text = re.sub(r"\s{2,}", " ", text)
+
+sys.stdout.write(text.strip())
+')
+
+if [ -z "$CLEAN_TEXT" ]; then
+    exit 0
+fi
+
+printf '%s' "$CLEAN_TEXT" | python3 -m piper -m "$MODEL" -f "$TMP_WAV" >/dev/null 2>&1
+paplay "$TMP_WAV" >/dev/null 2>&1
