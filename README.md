@@ -40,13 +40,22 @@ Linux, Wayland session — built and tested against KDE Plasma 6 / KWin specific
 
 ## Installation
 
+Clone this repo first — every command below assumes you're running it from inside the cloned directory:
+
+```bash
+git clone https://github.com/juhde-notadev/waylisper.git
+cd waylisper
+```
+
 ### 0a. Base packages (Fedora)
 
 ```bash
-sudo dnf install -y cmake gcc gcc-c++ make git python3-pip xterm alsa-utils wl-clipboard pipewire-alsa
+sudo dnf install -y cmake gcc gcc-c++ make git python3-pip xterm alsa-utils wl-clipboard pipewire-alsa jq pulseaudio-utils
 ```
 
 `pipewire-alsa` is the one easy to miss — it's the actual plugin that makes a PipeWire audio node (like your phone mic) show up as a named ALSA device at all. Without it, `arecord -L` won't list it and step 0c below won't have anything to point at. It's usually already pulled in by default on a full desktop install (Fedora KDE Spin includes it out of the box), but it's a distinct package worth naming explicitly rather than assuming.
+
+`jq` and `pulseaudio-utils` (for `paplay`) are only needed for the optional TTS read-back in step 6 — skip them if you're not setting that up.
 
 On other distros, swap in the equivalent package names/manager — everything here is standard tooling, nothing exotic.
 
@@ -115,7 +124,16 @@ systemctl --user daemon-reload
 systemctl --user enable --now transcribe-daemon.service
 ```
 
-First start downloads the model from Hugging Face (a few hundred MB to ~1.5GB depending on size) and takes ~15-20s to load; after that it's cached and loads in a couple seconds. Override the model or thread count with `WAYLISPER_MODEL` / `WAYLISPER_THREADS` env vars in the service file if the default (`large-v3-turbo`) is more than your CPU wants to carry.
+First start downloads the model from Hugging Face (a few hundred MB to ~1.5GB depending on size) and takes ~15-20s to load; after that it's cached and loads in a couple seconds.
+
+If the default model (`large-v3-turbo`) is more than your CPU wants to carry, override it by adding an `Environment=` line to `~/.config/systemd/user/transcribe-daemon.service`, under `[Service]`, before enabling it:
+
+```
+Environment=WAYLISPER_MODEL=medium.en
+Environment=WAYLISPER_THREADS=8
+```
+
+Then `systemctl --user daemon-reload && systemctl --user restart transcribe-daemon.service` to pick up the change.
 
 ### 2. (Optional) whisper.cpp fallback
 

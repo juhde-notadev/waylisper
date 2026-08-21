@@ -38,4 +38,5 @@ sleep 0.4
 # -d 0 -H 0: no artificial per-keystroke delay. Comment out the `ydotool key`
 # line below if you'd rather review the typed text before it submits.
 YDOTOOL_SOCKET=/run/ydotoold.socket ydotool type -d 0 -H 0 -- "$TEXT"
+# 28 = KEY_ENTER (see /usr/include/linux/input-event-codes.h); :1 press, :0 release.
 YDOTOOL_SOCKET=/run/ydotoold.socket ydotool key 28:1 28:0
