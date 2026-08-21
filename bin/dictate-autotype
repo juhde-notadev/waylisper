@@ -35,5 +35,8 @@ fi
 
 sleep 0.4
 
-YDOTOOL_SOCKET=/run/ydotoold.socket ydotool type -- "$TEXT"
+# Default per-keystroke delay is 20ms + 20ms hold = ~40ms/char, painfully
+# slow to watch on a long dictation. Verified 0ms doesn't drop or scramble
+# characters on this setup before making it the default.
+YDOTOOL_SOCKET=/run/ydotoold.socket ydotool type -d 0 -H 0 -- "$TEXT"
 YDOTOOL_SOCKET=/run/ydotoold.socket ydotool key 28:1 28:0
