@@ -3,6 +3,18 @@
 # types the result directly into whatever window regains focus.
 set -uo pipefail
 
+# A journalctl check turned up multiple dictate-autotype instances actually
+# overlapping in time - one continuous dictation was getting captured by
+# two separate recording sessions at once, each independently transcribing
+# and typing/submitting its own partial result. If the hotkey double-fires
+# (or a session's already running), a second invocation now just exits
+# instead of starting a competing recording.
+LOCK_FILE=/tmp/dictate-autotype.lock
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    exit 0
+fi
+
 RESULT_FILE=/tmp/dictate_last.txt
 rm -f "$RESULT_FILE"
 
