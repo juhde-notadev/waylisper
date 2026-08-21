@@ -132,9 +132,12 @@ If the default model (`large-v3-turbo`) is more than your CPU wants to carry, ov
 Environment=WAYLISPER_MODEL=medium.en
 Environment=WAYLISPER_THREADS=8
 Environment=WAYLISPER_BEAM_SIZE=1
+Environment=WAYLISPER_VAD_PAD_MS=700
 ```
 
 `WAYLISPER_BEAM_SIZE` defaults to `1` (greedy decoding) — for typical dictation-length clips the encoder pass dominates transcription time, not beam search, so this trades away little accuracy for a modest real speedup. Raise it (5 is faster-whisper's own default) if you notice it struggling on harder audio.
+
+`WAYLISPER_VAD_PAD_MS` defaults to `700` — how much audio the silence-stripping VAD filter (see the hallucination note below) keeps as a buffer around detected speech before trimming the rest. faster-whisper's own default is `400`; if it's clipping the last word of your recordings, raise this further.
 
 Then `systemctl --user daemon-reload && systemctl --user restart transcribe-daemon.service` to pick up the change.
 
@@ -232,6 +235,7 @@ Browse [more voices here](https://huggingface.co/rhasspy/piper-voices) if you wa
 - **`wl-copy` daemonizes.** Unlike X11 clipboard tools, it forks into the background and stays alive to actually serve the clipboard data. If you wrap it in something holding a `flock` (like the overlap guard in `dictate-autotype`), it'll inherit and hold that lock open indefinitely unless you explicitly close the fd for it (`wl-copy 200>&-`).
 - **Model load time matters as much as inference time** for a one-shot CLI tool. `faster-whisper` is meaningfully faster than `whisper.cpp` per-transcription, but reloading the model fresh every invocation (~15-20s) would make it slower overall — hence the persistent daemon.
 - **A phone-as-mic PipeWire source can have several seconds of graph-negotiation startup latency** that a native ALSA device doesn't — direct ALSA capture sidesteps this along with `pipewire-pulse`'s extra buffering.
+- **Whisper-family models hallucinate sign-off phrases** ("thanks for watching", "I'll see you next time") on trailing silence — they're trained on huge amounts of transcribed YouTube audio and learned that silence is often followed by one of those, so instead of correctly outputting nothing they sometimes output that. `transcribe-daemon` runs with `vad_filter=True` to strip silence before it reaches the model, which is the standard fix. The tradeoff: VAD's speech/silence boundary can also clip a word that trails off in volume right as you stop talking, which is what `WAYLISPER_VAD_PAD_MS` (see above) is for.
 
 ## Credits
 

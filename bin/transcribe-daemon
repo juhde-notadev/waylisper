@@ -22,6 +22,10 @@ CPU_THREADS = int(os.environ.get("WAYLISPER_THREADS", os.cpu_count() or 4))
 # little accuracy for a modest but real speedup. Bump it back up via the env
 # var if you notice it mangling harder audio (accents, background noise).
 BEAM_SIZE = int(os.environ.get("WAYLISPER_BEAM_SIZE", 1))
+# How much audio VAD keeps as a buffer around detected speech before trimming
+# the rest as silence. Too tight and it can clip a word that trails off in
+# volume right as you stop talking; faster-whisper's own default is 400ms.
+VAD_PAD_MS = int(os.environ.get("WAYLISPER_VAD_PAD_MS", 700))
 
 print("Loading model...", flush=True)
 model = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8", cpu_threads=CPU_THREADS)
@@ -44,7 +48,11 @@ class Handler(socketserver.StreamRequestHandler):
             # to this setup. VAD-filtering the silence out before transcribing
             # is the standard fix.
             segments, _ = model.transcribe(
-                wav_path, language="en", beam_size=BEAM_SIZE, vad_filter=True
+                wav_path,
+                language="en",
+                beam_size=BEAM_SIZE,
+                vad_filter=True,
+                vad_parameters={"speech_pad_ms": VAD_PAD_MS},
             )
             text = " ".join(s.text.strip() for s in segments)
             self.wfile.write((text + "\n").encode("utf-8"))
