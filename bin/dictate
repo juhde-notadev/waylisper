@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Push-to-talk dictation: records from the phone mic, transcribes with
+# whisper.cpp (large-v3-turbo), copies the result to the Wayland clipboard.
+set -uo pipefail
+
+WHISPER_BIN="$HOME/src/whisper.cpp/build/bin/whisper-cli"
+MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo.bin"
+SOURCE="Android_Mic_Source"
+
+if [ ! -x "$WHISPER_BIN" ]; then
+    echo "whisper-cli not found at $WHISPER_BIN" >&2
+    exit 1
+fi
+if [ ! -f "$MODEL" ]; then
+    echo "model not found at $MODEL" >&2
+    exit 1
+fi
+
+TMP_DIR=$(mktemp -d)
+WAV="$TMP_DIR/rec.wav"
+OUT_PREFIX="$TMP_DIR/out"
+cleanup() { rm -rf "$TMP_DIR"; }
+trap cleanup EXIT
+
+echo "Press Enter to start recording..."
+read -r
+
+parecord --device="$SOURCE" --rate=16000 --channels=1 --format=s16le --file-format=wav "$WAV" &
+REC_PID=$!
+
+echo "Recording... press Enter to stop."
+read -r
+
+kill -INT "$REC_PID" 2>/dev/null
+wait "$REC_PID" 2>/dev/null
+
+if [ ! -s "$WAV" ]; then
+    echo "No audio captured." >&2
+    exit 1
+fi
+
+echo "Transcribing..."
+"$WHISPER_BIN" -m "$MODEL" -f "$WAV" -t 16 -l en -nt -np -otxt -of "$OUT_PREFIX" >/dev/null 2>&1
+
+TEXT_FILE="$OUT_PREFIX.txt"
+if [ ! -f "$TEXT_FILE" ]; then
+    echo "Transcription failed." >&2
+    exit 1
+fi
+
+TEXT=$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' "$TEXT_FILE")
+
+if [ -z "$TEXT" ]; then
+    echo "No speech detected."
+    exit 0
+fi
+
+printf '%s' "$TEXT" | wl-copy
+
+echo "--- Transcript ---"
+echo "$TEXT"
+echo "------------------"
+echo "Copied to clipboard. Paste with Ctrl+Shift+V."
