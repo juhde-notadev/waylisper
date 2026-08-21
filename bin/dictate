@@ -75,7 +75,12 @@ if [ -z "$TEXT" ]; then
     exit 0
 fi
 
-printf '%s' "$TEXT" | wl-copy
+# wl-copy daemonizes and stays running to actually serve the clipboard
+# (unlike X11 clipboard tools). Found via lsof that it was inheriting and
+# holding open dictate-autotype's lock file descriptor (fd 200) forever,
+# permanently jamming the overlap guard even after everything else had
+# finished cleanly. 200>&- closes that fd for wl-copy specifically.
+printf '%s' "$TEXT" | wl-copy 200>&-
 printf '%s' "$TEXT" > /tmp/dictate_last.txt
 
 echo "--- Transcript ---"
