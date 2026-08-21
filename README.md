@@ -232,7 +232,19 @@ Browse [more voices here](https://huggingface.co/rhasspy/piper-voices) if you wa
 
 ## Credits
 
-Built collaboratively with [Claude Code](https://claude.com/claude-code) over one long, very caffeinated (and beer-fueled) evening of debugging Wayland desktop quirks. Standing on the shoulders of `faster-whisper`, `whisper.cpp`, `ydotool`, `Piper`, and `AndroidMic` — this repo is just the specific wiring, not those projects' work.
+**None of the hard technology here is ours.** Every actual capability — speech recognition, audio routing, virtual input, text-to-speech — comes from other people's work. What this repo contributes is specific: the wiring, the config, and the fixes for the particular ways these pieces broke against each other on a real Wayland/KDE desktop. If something here impresses you, it's almost certainly the project below it doing the real work, not the glue.
+
+- **[Whisper](https://github.com/openai/whisper)** (OpenAI) — the actual speech recognition model doing the transcription.
+- **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** (SYSTRAN) — the CTranslate2-based inference engine `transcribe-daemon` runs Whisper through.
+- **[CTranslate2](https://github.com/OpenNMT/CTranslate2)** (OpenNMT) — the fast inference runtime underneath faster-whisper.
+- **[whisper.cpp](https://github.com/ggml-org/whisper.cpp)** (ggml-org / Georgi Gerganov) — the CPU-optimized C++ Whisper implementation used as the offline fallback.
+- **[ydotool](https://github.com/ReimuNotMoe/ydotool)** (ReimuNotMoe) — the virtual-input tool that makes auto-typing possible on Wayland.
+- **[Piper](https://github.com/OHF-Voice/piper1-gpl)** (Open Home Foundation, formerly the Rhasspy project) — the text-to-speech engine behind the optional voice read-back.
+- **[AndroidMic](https://github.com/teamclouday/AndroidMic)** (teamclouday) — turns a phone into a PC microphone; what this was built and tested against.
+- **xterm** — the terminal `dictate-autotype` launches. Decades-old, unglamorous, and exactly why the auto-close behavior is reliable — see the gotchas above for why that's not a small thing.
+- **PipeWire, ALSA, and KDE Plasma/KWin** — the audio and desktop infrastructure everything else sits on top of.
+
+Wiring, scripting, and debugging done collaboratively with [Claude Code](https://claude.com/claude-code) over one long, very caffeinated (and beer-fueled) evening of fighting Wayland desktop quirks. Full credit for the underlying capabilities belongs to the projects above — this repo is the assembly, not the invention.
 
 ## License
 
