@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Runs `dictate` in its own terminal window, then once that window closes,
+# types the result directly into whatever window regains focus.
+set -uo pipefail
+
+RESULT_FILE=/tmp/dictate_last.txt
+rm -f "$RESULT_FILE"
+
+kitty --title dictate -e "$HOME/.local/bin/dictate"
+
+if [ ! -f "$RESULT_FILE" ]; then
+    exit 0
+fi
+
+TEXT=$(cat "$RESULT_FILE")
+if [ -z "$TEXT" ]; then
+    exit 0
+fi
+
+sleep 0.4
+
+YDOTOOL_SOCKET=/run/ydotoold.socket ydotool type -- "$TEXT"

@@ -1,0 +1,9 @@
+[Unit]
+Description=ydotool daemon (virtual input for auto-typing dictation output)
+
+[Service]
+ExecStart=/usr/local/sbin/ydotoold --socket-path=/run/ydotoold.socket --socket-perm=0660 --socket-own=0:GROUP_GID
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

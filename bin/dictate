@@ -61,6 +61,7 @@ if [ -z "$TEXT" ]; then
 fi
 
 printf '%s' "$TEXT" | wl-copy
+printf '%s' "$TEXT" > /tmp/dictate_last.txt
 
 echo "--- Transcript ---"
 echo "$TEXT"
