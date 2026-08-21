@@ -40,5 +40,22 @@ if [ -z "$CLEAN_TEXT" ]; then
     exit 0
 fi
 
+# A burst of rapid responses was causing every speak-response invocation
+# to generate and play audio independently, with no coordination between
+# them - the result was several voices overlapping and talking over each
+# other at once. Claim "latest" before playing; if a newer invocation
+# overwrites this first, we're stale and should skip instead of queuing
+# behind it.
+TOKEN="$$-$RANDOM"
+LATEST_FILE=/tmp/speak-response-latest
+LOCK_FILE=/tmp/speak-response.lock
+echo "$TOKEN" > "$LATEST_FILE"
+
 printf '%s' "$CLEAN_TEXT" | python3 -m piper -m "$MODEL" -f "$TMP_WAV" >/dev/null 2>&1
-paplay "$TMP_WAV" >/dev/null 2>&1
+
+(
+    flock -x 200
+    if [ "$(cat "$LATEST_FILE" 2>/dev/null)" = "$TOKEN" ]; then
+        paplay "$TMP_WAV" >/dev/null 2>&1
+    fi
+) 200>"$LOCK_FILE"
