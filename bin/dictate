@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Push-to-talk dictation: records from the phone mic, transcribes with
-# whisper.cpp (large-v3-turbo), copies the result to the Wayland clipboard.
+# Push-to-talk dictation: records from an ALSA capture device, transcribes
+# with whisper.cpp (large-v3-turbo), copies the result to the Wayland
+# clipboard.
 set -uo pipefail
 
 WHISPER_BIN="$HOME/src/whisper.cpp/build/bin/whisper-cli"
@@ -8,7 +9,13 @@ WHISPER_BIN="$HOME/src/whisper.cpp/build/bin/whisper-cli"
 # on the same test clip) and lower quality. Whisper.cpp's kernels on this
 # CPU are apparently better optimized for q8_0. Staying here.
 MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo-q8_0.bin"
-SOURCE="Android_Mic_Source"
+
+# Switched from parecord (PulseAudio-compat layer) to direct ALSA - the
+# same general approach this machine already uses for REAPER to keep
+# recording latency low. Also incidentally fixes the ~2s PipeWire warmup
+# delay parecord needed; direct ALSA starts flowing almost instantly, so
+# that whole sleep is gone too.
+ALSA_DEVICE="android_mic"
 
 if [ ! -x "$WHISPER_BIN" ]; then
     echo "whisper-cli not found at $WHISPER_BIN" >&2
@@ -25,16 +32,18 @@ OUT_PREFIX="$TMP_DIR/out"
 cleanup() { rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
 
-parecord --device="$SOURCE" --rate=16000 --channels=1 --format=s16le --file-format=wav "$WAV" &
+arecord -D "$ALSA_DEVICE" -f S16_LE -r 16000 -c 1 -t wav "$WAV" >/dev/null 2>&1 &
 REC_PID=$!
 
-# The phone mic's PipeWire node takes ~2s to actually start flowing audio
-# after parecord connects to it - without this wait, the first couple
-# seconds of speech get silently dropped from the recording.
-sleep 2.2
+sleep 0.2
 
-echo "Recording... press Enter to stop."
+echo "Recording... speak now, press Enter to stop."
 read -r
+
+# Small trailing buffer so words spoken right up to the Enter press aren't
+# clipped before the stop signal reaches arecord. Found this while testing
+# longer dictations - the last word or two kept getting cut off.
+sleep 0.3
 
 kill -INT "$REC_PID" 2>/dev/null
 wait "$REC_PID" 2>/dev/null
