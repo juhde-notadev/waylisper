@@ -4,6 +4,9 @@
 set -uo pipefail
 
 WHISPER_BIN="$HOME/src/whisper.cpp/build/bin/whisper-cli"
+# Tested q5_0 as a further speed upgrade - came back slower (6.6s vs 4.99s
+# on the same test clip) and lower quality. Whisper.cpp's kernels on this
+# CPU are apparently better optimized for q8_0. Staying here.
 MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo-q8_0.bin"
 SOURCE="Android_Mic_Source"
 
