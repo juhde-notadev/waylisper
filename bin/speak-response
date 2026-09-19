@@ -37,7 +37,13 @@ case "${WAYLISPER_TTS_VOICE:-jarvis}" in
         # Same underlying voice, just the faster-to-synthesize checkpoint.
         MODEL="$VOICES_DIR/jarvis-medium.onnx"
         LENGTH_SCALE=1
-        PITCH=1
+        # jarvis-medium reads deeper/more robotic than jarvis-high to a
+        # trained ear (confirmed A/B, same reverb on both) -- +0.5 semitone
+        # via the rubberband filter (pitch-shift only, tempo-preserving, so
+        # LENGTH_SCALE/speed stays untouched) to compensate. A full semitone
+        # (2^(1/12) ≈ 1.05946) was tried first and came back sounding like
+        # "Jarvis on helium" -- 2^(1/24) ≈ 1.02930 is half that.
+        PITCH=1.02930
         # Small-room reverb via layered short decaying echoes — this ffmpeg
         # build has no dedicated reverb filter (no afreeverb, no librubberband
         # convolution reverb), so aecho with several close, quickly-decaying
