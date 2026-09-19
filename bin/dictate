@@ -12,15 +12,30 @@ MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo-q8_0.bin"
 # the HD-Audio codec (card "Generic_1" — that one's the analog 3.5mm jack,
 # not the internal mic). Confirmed via volumedetect: Generic_1 captured pure
 # noise floor (-78dB) even with real speech; acp6x captured real signal
-# (-11dB). Override with WAYLISPER_ALSA_DEVICE for a different source (e.g.
-# a phone mic via AndroidMic, as the upstream README describes).
+# (-11dB) regardless of lid state. Override with WAYLISPER_ALSA_DEVICE for a
+# different source (e.g. a phone mic via AndroidMic, as the upstream README
+# describes).
 #
-# Also confirmed: this laptop hardware-gates the mic array when the lid is
-# closed — independent of any OS-level mute/capture-switch state. Dictation
-# only works with the lid open.
+# (Initially suspected the lid hardware-gates the mic when closed -- it
+# doesn't. acp6x captured identical signal (-11dB) with the lid open and
+# closed; Generic_1's silence was just the wrong card the whole time, an
+# empty 3.5mm jack with nothing plugged in. Lid state is a non-issue.)
 ALSA_DEVICE="${WAYLISPER_ALSA_DEVICE:-sysdefault:CARD=acp6x}"
 
 DAEMON_SOCKET="/run/user/$(id -u)/transcribe.sock"
+
+# Acoustic feedback guard: if TTS is still speaking through the speakers
+# when dictation starts, the mic picks that audio up right alongside (or
+# instead of) your actual voice -- there's no digital distinction between
+# "the assistant's voice" and "your voice" once it's sound waves in the
+# room, so Whisper can end up transcribing Claude's own trailing words back
+# in as if you'd said them. Killing any in-flight TTS playback the instant
+# dictation starts (same kill pattern as speak-stop, minus its persistent
+# mute toggle) closes that window. Doesn't help mid-sentence overlap if you
+# start talking before this fires, or with headphone-off room echo/reverb
+# tail after the kill -- for that, headphones are still the real fix.
+pkill -f "paplay .*\.wav" 2>/dev/null
+pkill -f "python3 -m piper" 2>/dev/null
 
 TMP_DIR=$(mktemp -d)
 WAV="$TMP_DIR/rec.wav"
