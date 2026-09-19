@@ -36,6 +36,17 @@ DAEMON_SOCKET="/run/user/$(id -u)/transcribe.sock"
 # tail after the kill -- for that, headphones are still the real fix.
 pkill -f "paplay .*\.wav" 2>/dev/null
 pkill -f "python3 -m piper" 2>/dev/null
+# Killing the currently-audible message isn't enough on its own: if several
+# Claude responses fired off Stop-hook TTS in a burst, an already-in-flight
+# one (still mid-synthesis, hasn't reached its own "am I still latest"
+# check yet) will start playing right after this kill, looking exactly like
+# the kill failed. speak-response only plays once it re-checks this shared
+# token file and finds itself still "latest" -- stomping it here makes any
+# message already queued behind the one we just killed see itself as stale
+# and skip playback too, the same way it'd skip itself if a newer message
+# had naturally superseded it. A genuinely new message that starts after
+# this point claims the token fresh and plays normally, unaffected.
+: > "${TMPDIR:-/tmp}/waylisper-speak-latest" 2>/dev/null
 
 TMP_DIR=$(mktemp -d)
 WAV="$TMP_DIR/rec.wav"

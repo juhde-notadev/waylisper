@@ -17,5 +17,10 @@ if [ -f "$MUTE_FILE" ]; then
 else
     pkill -f "paplay .*\.wav" 2>/dev/null
     pkill -f "python3 -m piper" 2>/dev/null
+    # Same reasoning as dictate's kill-on-start: killing the audible one
+    # isn't enough if another message is already mid-synthesis behind it.
+    # Stomping the shared "latest" token makes it see itself as stale and
+    # skip its own playback once it gets there, same as dictate does.
+    : > "${TMPDIR:-/tmp}/waylisper-speak-latest" 2>/dev/null
     touch "$MUTE_FILE"
 fi
