@@ -130,6 +130,21 @@ fi
 
 (
     flock -x 200
+    # Don't start talking into a live mic: dictate sets this flag for the
+    # exact window arecord is actually capturing (see bin/dictate). Poll
+    # instead of blocking indefinitely -- capped at 60s as a safety valve
+    # in case the flag ever gets orphaned (crash bypassing dictate's own
+    # cleanup trap), so a stuck flag can't permanently silence TTS.
+    RECORDING_FLAG="${XDG_STATE_HOME:-$HOME/.local/state}/waylisper/dictating"
+    WAITED=0
+    while [ -f "$RECORDING_FLAG" ] && [ "$WAITED" -lt 300 ]; do
+        sleep 0.2
+        WAITED=$((WAITED + 1))
+    done
+    # Re-check latest AFTER the wait, not before: this is what collapses a
+    # burst held behind one dictation down to just whichever message is
+    # actually newest once it's safe to play, instead of working through a
+    # backlog one at a time.
     if [ "$(cat "$LATEST_FILE" 2>/dev/null)" = "$TOKEN" ]; then
         paplay "$TMP_WAV" >/dev/null 2>&1
     fi

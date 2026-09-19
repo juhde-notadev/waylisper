@@ -51,8 +51,19 @@ pkill -f "python3 -m piper" 2>/dev/null
 TMP_DIR=$(mktemp -d)
 WAV="$TMP_DIR/rec.wav"
 OUT_PREFIX="$TMP_DIR/out"
-cleanup() { rm -rf "$TMP_DIR"; }
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/waylisper"
+RECORDING_FLAG="$STATE_DIR/dictating"
+mkdir -p "$STATE_DIR"
+cleanup() { rm -rf "$TMP_DIR"; rm -f "$RECORDING_FLAG"; }
 trap cleanup EXIT
+
+# Set for the exact window the mic is actually live -- not "dictate is
+# running" (transcription/clipboard-copy afterward is silent, no feedback
+# risk) but specifically "arecord is capturing." speak-response waits on
+# this before playing, so TTS can't start talking into an open mic; it's
+# cleared the instant recording stops (right after the kill below), well
+# before dictate itself finishes.
+touch "$RECORDING_FLAG"
 
 arecord -D "$ALSA_DEVICE" -f S16_LE -r 16000 -c 1 -t wav "$WAV" >/dev/null 2>&1 &
 REC_PID=$!
@@ -69,6 +80,7 @@ read -r
 sleep 0.3
 
 kill -INT "$REC_PID" 2>/dev/null
+rm -f "$RECORDING_FLAG"
 wait "$REC_PID" 2>/dev/null
 
 if [ ! -s "$WAV" ]; then
