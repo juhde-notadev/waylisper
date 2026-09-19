@@ -28,7 +28,14 @@ case "${WAYLISPER_TTS_VOICE:-jarvis}" in
         # A voice actually trained to emulate JARVIS (MIT licensed), not a
         # generic voice pushed through speed/pitch tricks — sounds right
         # untouched. https://huggingface.co/jgkawell/jarvis
-        MODEL="$VOICES_DIR/jarvis-high.onnx"
+        #
+        # Using the medium-quality tier, not high: benchmarked on path0s's
+        # CPU, jarvis-high took 7.6s to synthesize one moderate sentence
+        # while jarvis-medium took 3.2s (2.4x faster) for the same text --
+        # the ffmpeg reverb pass below is negligible by comparison (~0.07s),
+        # so model quality tier, not the reverb, was the real latency lever.
+        # Same underlying voice, just the faster-to-synthesize checkpoint.
+        MODEL="$VOICES_DIR/jarvis-medium.onnx"
         LENGTH_SCALE=1
         PITCH=1
         # Small-room reverb via layered short decaying echoes — this ffmpeg
