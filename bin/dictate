@@ -7,11 +7,11 @@ set -uo pipefail
 WHISPER_BIN="$HOME/src/whisper.cpp/build/bin/whisper-cli"
 MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo-q8_0.bin"
 
-# ALSA capture device. `arecord -L` lists devices; find whatever your mic
-# source shows up as (see README for the AndroidMic phone-as-mic setup this
-# was built around). Direct ALSA is used instead of PulseAudio/pipewire-pulse
-# for lower latency.
-ALSA_DEVICE="${WAYLISPER_ALSA_DEVICE:-default}"
+# ALSA capture device. `arecord -L` lists devices. Defaults to path0s's
+# built-in mic (HD-Audio Generic ALC236); override with WAYLISPER_ALSA_DEVICE
+# for a different source (e.g. a phone mic via AndroidMic, as the upstream
+# README describes).
+ALSA_DEVICE="${WAYLISPER_ALSA_DEVICE:-sysdefault:CARD=Generic_1}"
 
 DAEMON_SOCKET="/run/user/$(id -u)/transcribe.sock"
 
@@ -68,14 +68,14 @@ if [ -z "$TEXT" ]; then
     exit 0
 fi
 
-# wl-copy daemonizes and stays running to serve the clipboard, so it would
-# otherwise inherit and hold open any lock file descriptor (e.g. fd 200,
-# used by dictate-autotype's overlap guard) indefinitely. 200>&- closes
-# that fd for wl-copy specifically without affecting this script.
-printf '%s' "$TEXT" | wl-copy 200>&-
+# xsel forks to background to serve the clipboard, so it would otherwise
+# inherit and hold open any lock file descriptor (e.g. fd 200, used by
+# dictate-autotype's overlap guard) indefinitely. 200>&- closes that fd for
+# xsel specifically without affecting this script.
+printf '%s' "$TEXT" | xsel --clipboard --input 200>&-
 printf '%s' "$TEXT" > "${TMPDIR:-/tmp}/waylisper-last.txt"
 
 echo "--- Transcript ---"
 echo "$TEXT"
 echo "------------------"
-echo "Copied to clipboard. Paste with Ctrl+Shift+V."
+echo "Copied to clipboard. Paste with Ctrl+Shift+V (or middle-click for X11 primary selection)."

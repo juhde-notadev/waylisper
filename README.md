@@ -249,6 +249,27 @@ chmod +x ~/.local/bin/speak-stop
 - **Anywhere, hands-free**: tap your bound hotkey, speak, press Enter — the transcript types itself into whatever had focus and submits with Enter.
 - **Mute/unmute TTS**: tap your `speak-stop` hotkey (if bound) to cut off a response being read aloud and silence future ones; tap again to un-mute.
 
+## X11 / Openbox port (path0s, Arch)
+
+Everything above is written for the original Wayland/KDE Plasma 6 target. On an X11/Openbox box (path0s specifically), the mic-capture and transcription pipeline is unchanged, but the clipboard/autotype/hotkey layer swaps out:
+
+| Wayland/KDE original | X11/Openbox replacement |
+|---|---|
+| `wl-copy` | `xsel --clipboard --input` |
+| `ydotool` (+ `ydotoold` daemon, uinput perms) | `xdotool type` / `xdotool key` — native X11, no daemon needed |
+| `kdotool` (KWin-scripting hack for focus tracking) | `xdotool getactivewindow` / `windowactivate` — native |
+| KDE global shortcut (System Settings) | Openbox `<keybind>` in `~/.config/openbox/rc.xml` — see `openbox/keybinds.xml` in this repo |
+
+`bin/dictate` and `bin/dictate-autotype` already reflect these swaps directly (there's no separate X11 fork of the scripts — the Wayland-specific bits were replaced in place). `bin/transcribe-daemon`/`bin/transcribe-client` needed no changes at all; they're desktop-agnostic.
+
+**Setup on path0s specifically:**
+- Mic: built-in laptop mic (`sysdefault:CARD=Generic_1`, HD-Audio Generic ALC236), no AndroidMic/phone pairing needed. Override with `WAYLISPER_ALSA_DEVICE` if that ever changes.
+- STT backend: `faster-whisper` only (installed via `pip install --user --break-system-packages faster-whisper`), no whisper.cpp fallback built — Arch/BlackArch's CPU (no dedicated GPU on this box) doesn't benefit enough from whisper.cpp's setup cost to be worth the extra build step.
+- Model: `large-v3-turbo`, `compute_type=int8` (~1.6GB on disk once downloaded/cached by faster-whisper — see `bin/transcribe-daemon`).
+- `transcribe-daemon` runs as a `systemctl --user` service (`~/.config/systemd/user/transcribe-daemon.service`, copied from `systemd/transcribe-daemon.service` in this repo — that unit file needed no changes either).
+- `systemd/ydotoold.service` in this repo is Wayland-only and unused on this port — no equivalent needed since `xdotool` doesn't require a daemon.
+- Hotkeys: a Logitech MX Mechanical's dedicated Dictation/Emoji keys report as plain F5/F6 when not in F-mode. F5 → `dictate-autotype`, F6 → `speak-stop` (kills in-progress TTS immediately *and* toggles mute for future responses — same script, dual purpose). See `openbox/keybinds.xml` for the exact `<keybind>` blocks; they get pasted into `~/.config/openbox/rc.xml`'s `<keyboard>` section, then `openbox --reconfigure` to apply.
+
 ## Gotchas we hit building this (so you don't have to)
 
 - **Global shortcuts run with a stripped-down `PATH`.** KWin/kglobalaccel doesn't source your shell's rc files, so `~/.local/bin` isn't there — use full paths in Custom Shortcut commands.

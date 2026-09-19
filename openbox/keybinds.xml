@@ -1,0 +1,25 @@
+<!--
+  Openbox keybinds for waylisper's X11/Openbox port (used on path0s /
+  Arch — the rest of this repo's docs are written for the original
+  Wayland/KDE Plasma 6 target; this file is specific to the X11 path).
+
+  Not a standalone config — these <keybind> blocks go inside the
+  <keyboard> section of ~/.config/openbox/rc.xml. After adding them,
+  reload with: openbox --reconfigure
+
+  F5/F6 here assume a Logitech MX Mechanical (or similar) with dedicated
+  Dictation/Emoji keys that report as plain F5/F6 when the keyboard is
+  NOT in F-mode (Fn-lock off). If your keyboard sends something else,
+  check with `xev` first and swap the key="" values below.
+-->
+<keybind key="F5">
+  <action name="Execute">
+    <command>/home/odrift/.local/bin/dictate-autotype</command>
+  </action>
+</keybind>
+
+<keybind key="F6">
+  <action name="Execute">
+    <command>/home/odrift/.local/bin/speak-stop</command>
+  </action>
+</keybind>

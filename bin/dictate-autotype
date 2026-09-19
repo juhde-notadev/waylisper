@@ -16,13 +16,10 @@ fi
 RESULT_FILE="${TMPDIR:-/tmp}/waylisper-last.txt"
 rm -f "$RESULT_FILE"
 
-# Remember the window that had focus before we steal it with xterm. Under
-# Wayland/KWin, focus does NOT return to the previous window after an
-# (XWayland) xterm closes — it goes nowhere — so ydotool's keystrokes below
-# would be dropped into the void. kdotool (KWin-scripting xdotool clone)
-# lets us re-activate the original window afterward. Degrades gracefully if
-# kdotool isn't installed: PREV_WIN stays empty and we just skip the re-focus.
-PREV_WIN=$(kdotool getactivewindow 2>/dev/null)
+# Remember the window that had focus before we steal it with xterm. Openbox
+# usually returns focus to the previous window on its own once xterm closes,
+# but explicitly re-activating avoids relying on that behavior.
+PREV_WIN=$(xdotool getactivewindow 2>/dev/null)
 
 # Plain xterm on purpose: modern terminal emulators (kitty, konsole, etc.)
 # have single-instance modes and close-confirmation dialogs that fight this
@@ -39,13 +36,12 @@ if [ -z "$TEXT" ]; then
     exit 0
 fi
 
-# Re-activate the window that had focus before xterm, then give KWin a
+# Re-activate the window that had focus before xterm, then give Openbox a
 # moment to settle before typing into it.
-[ -n "${PREV_WIN:-}" ] && kdotool windowactivate "$PREV_WIN" 2>/dev/null
+[ -n "${PREV_WIN:-}" ] && xdotool windowactivate "$PREV_WIN" 2>/dev/null
 sleep 0.3
 
-# -d 0 -H 0: no artificial per-keystroke delay. Comment out the `ydotool key`
+# --delay 0: no artificial per-keystroke delay. Comment out the `xdotool key`
 # line below if you'd rather review the typed text before it submits.
-YDOTOOL_SOCKET=/run/ydotoold.socket ydotool type -d 0 -H 0 -- "$TEXT"
-# 28 = KEY_ENTER (see /usr/include/linux/input-event-codes.h); :1 press, :0 release.
-YDOTOOL_SOCKET=/run/ydotoold.socket ydotool key 28:1 28:0
+xdotool type --delay 0 -- "$TEXT"
+xdotool key Return
