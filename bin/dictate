@@ -8,10 +8,17 @@ WHISPER_BIN="$HOME/src/whisper.cpp/build/bin/whisper-cli"
 MODEL="$HOME/src/whisper.cpp/models/ggml-large-v3-turbo-q8_0.bin"
 
 # ALSA capture device. `arecord -L` lists devices. Defaults to path0s's
-# built-in mic (HD-Audio Generic ALC236); override with WAYLISPER_ALSA_DEVICE
-# for a different source (e.g. a phone mic via AndroidMic, as the upstream
-# README describes).
-ALSA_DEVICE="${WAYLISPER_ALSA_DEVICE:-sysdefault:CARD=Generic_1}"
+# built-in mic array, which lives on the AMD ACP path (card "acp6x"), NOT
+# the HD-Audio codec (card "Generic_1" — that one's the analog 3.5mm jack,
+# not the internal mic). Confirmed via volumedetect: Generic_1 captured pure
+# noise floor (-78dB) even with real speech; acp6x captured real signal
+# (-11dB). Override with WAYLISPER_ALSA_DEVICE for a different source (e.g.
+# a phone mic via AndroidMic, as the upstream README describes).
+#
+# Also confirmed: this laptop hardware-gates the mic array when the lid is
+# closed — independent of any OS-level mute/capture-switch state. Dictation
+# only works with the lid open.
+ALSA_DEVICE="${WAYLISPER_ALSA_DEVICE:-sysdefault:CARD=acp6x}"
 
 DAEMON_SOCKET="/run/user/$(id -u)/transcribe.sock"
 
