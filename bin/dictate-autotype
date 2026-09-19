@@ -44,4 +44,13 @@ sleep 0.3
 # --delay 0: no artificial per-keystroke delay. Comment out the `xdotool key`
 # line below if you'd rather review the typed text before it submits.
 xdotool type --delay 0 -- "$TEXT"
-xdotool key Return
+
+# Race condition: if the last typed character needs Shift (a capital letter,
+# punctuation like "?"), xdotool type sends a Shift-press/release pair for
+# it. With no gap before the next command, Return's keypress can reach X
+# before that Shift-release has actually landed -- X then sees Shift still
+# down + Return = Shift+Return = newline, not submit. The 100ms sleep gives
+# the release time to land; --clearmodifiers on the Return keypress itself
+# is a second layer that explicitly forces any stuck modifier off first.
+sleep 0.1
+xdotool key --clearmodifiers Return

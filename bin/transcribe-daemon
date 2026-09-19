@@ -24,8 +24,16 @@ CPU_THREADS = int(os.environ.get("WAYLISPER_THREADS", os.cpu_count() or 4))
 BEAM_SIZE = int(os.environ.get("WAYLISPER_BEAM_SIZE", 1))
 # How much audio VAD keeps as a buffer around detected speech before trimming
 # the rest as silence. Too tight and it can clip a word that trails off in
-# volume right as you stop talking; faster-whisper's own default is 400ms.
-VAD_PAD_MS = int(os.environ.get("WAYLISPER_VAD_PAD_MS", 700))
+# volume right as you stop talking; too loose and the extra trailing silence
+# is enough to trigger Whisper's well-documented hallucination mode where it
+# fills silence with YouTube-trained sign-off phrases ("thanks for
+# watching"). Was 700ms (bumped up from faster-whisper's own 400ms default
+# to avoid clipping) but that turned out to overshoot into hallucination
+# territory on path0s -- pulled back toward the library default. `dictate`
+# also adds its own 300ms raw recording buffer *before* this pad ever
+# applies, so the two stack; if hallucination comes back, that's the other
+# knob to check.
+VAD_PAD_MS = int(os.environ.get("WAYLISPER_VAD_PAD_MS", 400))
 
 print("Loading model...", flush=True)
 model = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8", cpu_threads=CPU_THREADS)
